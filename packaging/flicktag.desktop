@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Flicktag
+GenericName=Image Tagger
+Comment=Fast fullscreen tagging of photos and drawing references
+Exec=flicktag %f
+Icon=image-x-generic
+Terminal=false
+Type=Application
+Categories=Qt;Graphics;

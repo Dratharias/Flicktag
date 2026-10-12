@@ -1,7 +1,7 @@
 # Flicktag — Design Spec
 
 - **Date**: 2026-10-11
-- **Status**: Draft, awaiting review
+- **Status**: Approved 2026-10-11; §7 amended during implementation
 - **Scope**: the desktop tagger only. The quick-poses player is a separate, future web app
   backed by a self-hosted DB; Flicktag only has to produce data it can consume.
 
@@ -208,12 +208,18 @@ Implemented in `xmp.py` with `pyexiv2`.
 - Embeddings fetched in batches for upcoming images, stored in `images.embedding` along with
   `embed_model`. Changing the model invalidates them (recomputed lazily).
 - Per-tag scoring:
-  - **zero-shot** while the tag has fewer than 10 positive or 10 negative feedback rows:
-    sigmoid of SigLIP's scaled image–text similarity against `prompt` (default
-    `"a photo of {name}"`), using the logit scale/bias returned by `/health`;
-  - **classifier** once both thresholds are met: L2-regularised logistic regression on
-    embeddings (NumPy implementation, no scikit-learn), retrained in a background thread
-    every 25 validations.
+  - **zero-shot** while the tag has fewer than 10 positive or 10 negative examples:
+    softmax, within the tag's category, of SigLIP's scaled image–text logits against each
+    tag's `prompt` (default `"a photo of {name}"`), using the logit scale/bias returned by
+    `/health`. (A plain per-tag sigmoid was dropped: SigLIP's absolute zero-shot
+    probabilities are far below any usable threshold.)
+  - **classifier** once both thresholds are met: L2-regularised, class-balanced logistic
+    regression on embeddings (NumPy IRLS, no scikit-learn), retrained in a background
+    thread every 25 validations and at startup.
+  - **Training examples**: every validated image (`status = tagged`) with an embedding is an
+    example for every tag — positive if it carries the tag, negative otherwise (the user saw
+    the whole tag bar). The `feedback` table still records kept/rejected suggestions for
+    analysis.
 - Pre-check rule: probability ≥ threshold (default 0.5, setting). In an exclusive category,
   only the highest-scoring tag, and only if above threshold.
 
