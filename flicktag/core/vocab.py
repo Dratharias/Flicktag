@@ -212,6 +212,10 @@ DEFAULT_VOCABULARY = [
         ("photo", "a photograph", "4"),
         ("drawing", "a drawing, painting or digital illustration", "5"),
     ]),
+    ("Style", True, None, [
+        ("realistic", "a realistic depiction of a real person", "7"),
+        ("stylized", "a stylized anime or cartoon character", "8"),
+    ]),
     ("Layout", False, None, [
         ("sheet", "a study sheet with many small drawings on one page", "6"),
     ]),
