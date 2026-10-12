@@ -11,7 +11,7 @@ from flicktag.suggest.classifier import LogisticRegression
 from flicktag.suggest.client import Offline, SuggestClient
 from flicktag.suggest.engine import MIN_EXAMPLES, SuggestionEngine, preselect
 
-DIM = 8
+DIM = 64  # above the default tag count, so every prompt gets its own axis
 
 
 def test_logistic_regression_separates_classes():

@@ -178,6 +178,10 @@ DEFAULT_VOCABULARY = [
         ("animal", "a photo of an animal"),
         ("drapery", "a photo of draped fabric with folds"),
         ("landscape", "a landscape photo with no people", "g"),
+        ("mouth", "a close-up of a mouth, lips, teeth or tongue", "z"),
+        ("eye", "a close-up of an eye", "1"),
+        ("ear", "a close-up of an ear", "2"),
+        ("nose", "a close-up of a nose", "3"),
     ]),
     ("Pose", True, 2, [
         ("standing", "a person standing"),
@@ -203,6 +207,13 @@ DEFAULT_VOCABULARY = [
         ("sky", "a landscape dominated by sky and clouds", "q"),
         ("urban", "a city street or buildings", "v"),
         ("rock", "a landscape with rocks or cliffs", "x"),
+    ]),
+    ("Medium", True, None, [
+        ("photo", "a photograph", "4"),
+        ("drawing", "a drawing, painting or digital illustration", "5"),
+    ]),
+    ("Layout", False, None, [
+        ("sheet", "a study sheet with many small drawings on one page", "6"),
     ]),
 ]
 
