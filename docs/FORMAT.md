@@ -78,7 +78,7 @@ Location: `$XDG_DATA_HOME/flicktag/flicktag.db` (default `~/.local/share/flickta
 | `libraries` | One row per folder / pack (`root_path` unique) |
 | `images` | `uid`, `content_hash`, `library_id`, `rel_path`, size, `status` (`untagged` / `tagged` / `trashed` / `unreadable` / `missing`), `xmp_pending`, cached `embedding` (float16) + `embed_model` |
 | `categories` | `name`, `slug`, `exclusive`, `position`, `rename_rank` |
-| `tags` | `category_id`, `name`, `slug`, `key` (shortcut), `prompt` (zero-shot text), `position` |
+| `tags` | `category_id`, `name`, `slug`, `key` (shortcut; `a` = A, `A` = Shift+A), `prompt` (zero-shot text), `position` |
 | `image_tags` | Assignments; `source` = `manual` or `suggested` |
 | `feedback` | Per image and tag: 1 = suggestion kept or tag added, 0 = suggestion rejected |
 | `journal` | Every validation, trash, rename (with before/after JSON) and XMP error |

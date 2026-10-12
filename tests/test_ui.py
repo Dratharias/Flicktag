@@ -78,3 +78,12 @@ def test_enter_validates_like_space(qtbot, window, seeded):
     qtbot.keyClick(window, Qt.Key.Key_Return)
     assert seeded.image_tag_ids(first) == {hand.id}
     assert window.session.current_id != first
+
+
+def test_shift_letter_toggles_shift_tag_only(qtbot, window, seeded):
+    skeleton = seeded.tag(tag_id(seeded, "subject", "skeleton"))
+    standing = seeded.tag(tag_id(seeded, "pose", "standing"))
+    assert (skeleton.key, standing.key) == ("S", "s")
+    qtbot.keyClick(window, "s", Qt.KeyboardModifier.ShiftModifier)
+    assert skeleton.id in window.session.checked
+    assert standing.id not in window.session.checked

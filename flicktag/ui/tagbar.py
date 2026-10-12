@@ -7,6 +7,7 @@ from typing import Callable
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from flicktag.core import vocab
 from flicktag.core.store import Category, Tag
 
 STYLE = """
@@ -84,7 +85,7 @@ class TagBar(QWidget):
 
 
 def _chip_text(tag: Tag) -> str:
-    return f"{tag.key.upper()}  {tag.name}" if tag.key else tag.name
+    return f"{vocab.key_label(tag.key)}  {tag.name}" if tag.key else tag.name
 
 
 def _clear(layout) -> None:

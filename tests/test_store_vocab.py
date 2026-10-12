@@ -89,3 +89,20 @@ def test_move_reorders(store):
 def test_default_keys_are_stable(seeded):
     keys = {t.slug: t.key for t in seeded.tags()}
     assert (keys["lying"], keys["dynamic"], keys["landscape"]) == ("l", "y", "g")
+
+
+def test_shift_keys_are_distinct_from_plain_keys(store):
+    cat = vocab.add_category(store, "Pose")
+    assert vocab.add_tag(store, cat.id, "standing").key == "s"
+    assert vocab.add_tag(store, cat.id, "seated").key == "e"
+    assert vocab.add_tag(store, cat.id, "sss").key == "S"  # name letters with Shift before other keys
+    with pytest.raises(vocab.VocabError):
+        vocab.add_tag(store, cat.id, "new", key="N")
+
+
+@pytest.mark.parametrize("key, label, text", [("a", "A", "A"), ("1", "1", "1"), ("A", "⇧A", "+A")])
+def test_key_label_and_edit_round_trip(key, label, text):
+    assert vocab.key_label(key) == label
+    assert vocab.format_key(key) == text
+    assert vocab.parse_key(text) == key
+    assert vocab.parse_key(text.lower()) == key

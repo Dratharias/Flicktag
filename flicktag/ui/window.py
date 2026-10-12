@@ -24,7 +24,7 @@ PREFETCH = 4
 CACHE_SIZE = 8
 
 HELP = """<b>Flicktag</b><br><br>
-<b>Letter / digit</b> toggle tag &nbsp;·&nbsp; click a chip does the same<br>
+<b>Letter / digit</b> toggle tag (⇧ = with Shift) &nbsp;·&nbsp; click a chip does the same<br>
 <b>Space / Enter</b> validate &amp; next &nbsp;·&nbsp; <b>→ / ←</b> next / previous without validating<br>
 <b>Delete</b> move to trash &nbsp;·&nbsp; <b>Ctrl+Z</b> undo<br>
 <b>N</b> new tag &nbsp;·&nbsp; <b>Tab</b> hide tag bar &nbsp;·&nbsp; <b>F11</b> fullscreen<br>
@@ -428,7 +428,10 @@ class MainWindow(QMainWindow):
         elif key == Qt.Key.Key_N:
             self._new_tag()
         else:
+            # Case comes from the Shift modifier, not the text, so Caps Lock is ignored.
             text = event.text().lower()
+            if text.isalpha() and modifiers & Qt.KeyboardModifier.ShiftModifier:
+                text = text.upper()
             if len(text) == 1 and vocab.valid_key(text):
                 tag = next((t for t in self.store.tags() if t.key == text), None)
                 if tag:

@@ -21,7 +21,7 @@ Without the container everything works, just without suggestions (red dot in the
 
 | Key | Action |
 |---|---|
-| letter / digit | toggle the tag shown with that key (click works too) |
+| letter / digit | toggle the tag shown with that key (click works too); `⇧A` means Shift+A |
 | `Space` / `Enter` | validate (suggestions included) and go to the next image |
 | `→` / `←` | next / previous without validating |
 | `Delete` | move the file to the system trash |

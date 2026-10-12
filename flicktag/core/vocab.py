@@ -7,10 +7,13 @@ import string
 from flicktag.core.slug import slugify
 from flicktag.core.store import Category, Store, Tag
 
-# Letters taken by reserved actions (N = new tag). Digits and the remaining
-# letters are free for tags.
-RESERVED_KEYS = frozenset("n")
-KEY_POOL = [c for c in string.ascii_lowercase if c not in RESERVED_KEYS] + list("1234567890")
+# Letters taken by reserved actions (N = new tag, with or without Shift). Digits
+# and the remaining letters are free for tags. A key is stored as the character
+# it types: "a" is A, "A" is Shift+A.
+RESERVED_KEYS = frozenset("nN")
+PLAIN_KEYS = [c for c in string.ascii_lowercase if c not in RESERVED_KEYS] + list("1234567890")
+SHIFT_KEYS = [c for c in string.ascii_uppercase if c not in RESERVED_KEYS]
+KEY_POOL = PLAIN_KEYS + SHIFT_KEYS
 
 
 class VocabError(ValueError):
@@ -25,9 +28,32 @@ def used_keys(store: Store) -> set[str]:
     return {r["key"] for r in store.query("SELECT key FROM tags WHERE key IS NOT NULL")}
 
 
+def key_label(key: str) -> str:
+    """How a key is shown on chips and lists: "A", "1" or "⇧A"."""
+    return f"⇧{key}" if key in SHIFT_KEYS else key.upper()
+
+
+def format_key(key: str | None) -> str:
+    """Editable form of a key: "A", "1" or "+A" for Shift+A."""
+    if not key:
+        return ""
+    return f"+{key}" if key in SHIFT_KEYS else key.upper()
+
+
+def parse_key(text: str) -> str | None:
+    """Inverse of format_key; case-insensitive, a leading "+" means Shift."""
+    text = text.strip()
+    if not text:
+        return None
+    if text.startswith("+"):
+        return text[1:].upper()
+    return text.lower()
+
+
 def suggest_key(name: str, taken: set[str]) -> str | None:
-    """First free letter of the name, then any free key from the pool."""
-    for char in slugify(name):
+    """First free letter of the name, then the same with Shift, then any free key."""
+    letters = slugify(name)
+    for char in list(letters) + [c.upper() for c in letters]:
         if char in KEY_POOL and char not in taken:
             return char
     for char in KEY_POOL:
@@ -100,7 +126,6 @@ def add_tag(
         raise VocabError(f"tag '{name}' already exists in this category")
     taken = used_keys(store)
     if key is not None:
-        key = key.lower()
         if not valid_key(key):
             raise VocabError(f"'{key}' cannot be used as a shortcut")
         if key in taken:
@@ -129,7 +154,6 @@ def update_tag(store: Store, tag_id: int, name: str, key: str | None, prompt: st
     if clash:
         raise VocabError(f"tag '{name}' already exists in this category")
     if key:
-        key = key.lower()
         if not valid_key(key):
             raise VocabError(f"'{key}' cannot be used as a shortcut")
         if store.query("SELECT 1 FROM tags WHERE key = ? AND id != ?", (key, tag_id)):
@@ -182,6 +206,8 @@ DEFAULT_VOCABULARY = [
         ("eye", "a close-up of an eye", "1"),
         ("ear", "a close-up of an ear", "2"),
         ("nose", "a close-up of a nose", "3"),
+        ("skeleton", "a skull, bones or a skeleton", "S"),
+        ("creature", "a fantasy creature, monster or dragon", "C"),
     ]),
     ("Pose", True, 2, [
         ("standing", "a person standing"),
@@ -211,6 +237,7 @@ DEFAULT_VOCABULARY = [
     ("Medium", True, None, [
         ("photo", "a photograph", "4"),
         ("drawing", "a drawing, painting or digital illustration", "5"),
+        ("3d", "a 3D render or digital sculpture", "D"),
     ]),
     ("Style", True, None, [
         ("realistic", "a realistic depiction of a real person", "7"),

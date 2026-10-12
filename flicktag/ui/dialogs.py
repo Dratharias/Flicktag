@@ -142,7 +142,8 @@ class VocabularyDialog(QDialog):
         self.form = QFormLayout()
         self.name = QLineEdit()
         self.key = QLineEdit()
-        self.key.setMaxLength(1)
+        self.key.setMaxLength(2)
+        self.key.setPlaceholderText("A, 1 or +A for Shift+A")
         self.prompt = QLineEdit()
         self.exclusive = QCheckBox("exclusive (one tag at most)")
         self.rank = QSpinBox()
@@ -175,7 +176,7 @@ class VocabularyDialog(QDialog):
             parent.setData(0, Qt.ItemDataRole.UserRole, ("category", category.id))
             self.tree.addTopLevelItem(parent)
             for tag in self.store.tags(category.id):
-                child = QTreeWidgetItem([tag.name, (tag.key or "").upper()])
+                child = QTreeWidgetItem([tag.name, vocab.key_label(tag.key) if tag.key else ""])
                 child.setData(0, Qt.ItemDataRole.UserRole, ("tag", tag.id))
                 parent.addChild(child)
                 if select == ("tag", tag.id):
@@ -201,7 +202,7 @@ class VocabularyDialog(QDialog):
         if is_tag:
             tag = self.store.tag(selected[1])
             self.name.setText(tag.name)
-            self.key.setText((tag.key or "").upper())
+            self.key.setText(vocab.format_key(tag.key))
             self.prompt.setText(tag.prompt or "")
         elif is_category:
             category = self.store.category(selected[1])
@@ -217,7 +218,9 @@ class VocabularyDialog(QDialog):
             return
         try:
             if selected[0] == "tag":
-                vocab.update_tag(self.store, selected[1], self.name.text(), self.key.text() or None, self.prompt.text())
+                vocab.update_tag(
+                    self.store, selected[1], self.name.text(), vocab.parse_key(self.key.text()), self.prompt.text()
+                )
             else:
                 vocab.update_category(
                     self.store, selected[1], self.name.text(), self.exclusive.isChecked(), self.rank.value() or None
