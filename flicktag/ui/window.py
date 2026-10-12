@@ -25,7 +25,7 @@ CACHE_SIZE = 8
 
 HELP = """<b>Flicktag</b><br><br>
 <b>Letter / digit</b> toggle tag &nbsp;·&nbsp; click a chip does the same<br>
-<b>Space</b> validate &amp; next &nbsp;·&nbsp; <b>→ / ←</b> next / previous without validating<br>
+<b>Space / Enter</b> validate &amp; next &nbsp;·&nbsp; <b>→ / ←</b> next / previous without validating<br>
 <b>Delete</b> move to trash &nbsp;·&nbsp; <b>Ctrl+Z</b> undo<br>
 <b>N</b> new tag &nbsp;·&nbsp; <b>Tab</b> hide tag bar &nbsp;·&nbsp; <b>F11</b> fullscreen<br>
 <b>Esc</b> leave fullscreen &nbsp;·&nbsp; <b>F1</b> this help<br><br>
@@ -412,7 +412,7 @@ class MainWindow(QMainWindow):
             self._undo()
         elif modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier):
             super().keyPressEvent(event)
-        elif key == Qt.Key.Key_Space:
+        elif key in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self.session.validate_and_next()
             self._refresh()
         elif key == Qt.Key.Key_Right:

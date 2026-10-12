@@ -70,3 +70,11 @@ def test_menubar_menus_fill(qtbot, window):
     queue.aboutToShow.emit()  # refilling must not duplicate entries
     assert [a.text() for a in queue.actions()].count("Untagged only") == 1
 
+
+def test_enter_validates_like_space(qtbot, window, seeded):
+    first = window.session.current_id
+    hand = seeded.tag(tag_id(seeded, "subject", "hand"))
+    qtbot.keyClick(window, hand.key)
+    qtbot.keyClick(window, Qt.Key.Key_Return)
+    assert seeded.image_tag_ids(first) == {hand.id}
+    assert window.session.current_id != first

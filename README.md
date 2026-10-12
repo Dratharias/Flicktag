@@ -22,7 +22,7 @@ Without the container everything works, just without suggestions (red dot in the
 | Key | Action |
 |---|---|
 | letter / digit | toggle the tag shown with that key (click works too) |
-| `Space` | validate (suggestions included) and go to the next image |
+| `Space` / `Enter` | validate (suggestions included) and go to the next image |
 | `→` / `←` | next / previous without validating |
 | `Delete` | move the file to the system trash |
 | `Ctrl+Z` | undo the last validation or trash |
