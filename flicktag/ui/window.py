@@ -393,7 +393,8 @@ class MainWindow(QMainWindow):
             self.help.hide()
             return
         if key == Qt.Key.Key_F11:
-            self.showNormal() if self.isFullScreen() else self.showFullScreen()
+            # XOR keeps the maximized flag, so leaving fullscreen goes back to maximized
+            self.setWindowState(self.windowState() ^ Qt.WindowState.WindowFullScreen)
             return
         if key == Qt.Key.Key_F1:
             self.help.show()

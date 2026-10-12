@@ -71,7 +71,7 @@ def cmd_gui(args) -> int:
             return 2
         library_id = store.add_library(args.folder).id
     window = MainWindow(store, library_id)
-    window.showFullScreen()
+    window.showMaximized()
     return app.exec()
 
 
