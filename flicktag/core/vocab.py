@@ -168,7 +168,8 @@ def move(store: Store, table: str, item_id: int, delta: int) -> None:
 
 
 DEFAULT_VOCABULARY = [
-    # (category, exclusive, rename_rank, [(tag, zero-shot prompt)])
+    # (category, exclusive, rename_rank, [(tag, zero-shot prompt[, key])])
+    # Tags added after the first release pin their key so older default keys never shift.
     ("Subject", False, 1, [
         ("figure", "a full body photo of a person"),
         ("portrait", "a close-up portrait of a face"),
@@ -176,6 +177,7 @@ DEFAULT_VOCABULARY = [
         ("foot", "a close-up photo of a foot"),
         ("animal", "a photo of an animal"),
         ("drapery", "a photo of draped fabric with folds"),
+        ("landscape", "a landscape photo with no people", "g"),
     ]),
     ("Pose", True, 2, [
         ("standing", "a person standing"),
@@ -194,6 +196,14 @@ DEFAULT_VOCABULARY = [
         ("nude", "a nude figure model"),
         ("clothed", "a clothed person"),
     ]),
+    ("Scene", False, None, [
+        ("mountain", "a landscape with mountains", "m"),
+        ("forest", "a landscape with a forest or trees", "j"),
+        ("water", "a landscape with a sea, lake or river", "w"),
+        ("sky", "a landscape dominated by sky and clouds", "q"),
+        ("urban", "a city street or buildings", "v"),
+        ("rock", "a landscape with rocks or cliffs", "x"),
+    ]),
 ]
 
 
@@ -204,5 +214,5 @@ def seed_defaults(store: Store) -> None:
     with store.transaction():
         for name, exclusive, rank, tags in DEFAULT_VOCABULARY:
             category = add_category(store, name, exclusive=exclusive, rename_rank=rank)
-            for tag_name, prompt in tags:
-                add_tag(store, category.id, tag_name, prompt=prompt)
+            for tag_name, prompt, *key in tags:
+                add_tag(store, category.id, tag_name, prompt=prompt, key=key[0] if key else None)

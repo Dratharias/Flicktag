@@ -84,3 +84,8 @@ def test_move_reorders(store):
     vocab.move(store, "categories", b.id, -1)  # already first: no-op
     assert [c.name for c in store.categories()] == ["B", "A"]
     assert a.id
+
+
+def test_default_keys_are_stable(seeded):
+    keys = {t.slug: t.key for t in seeded.tags()}
+    assert (keys["lying"], keys["dynamic"], keys["landscape"]) == ("l", "y", "g")
