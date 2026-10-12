@@ -28,14 +28,15 @@ Without the container everything works, just without suggestions (red dot in the
 | `Ctrl+Z` | undo the last validation or trash |
 | `N` | new tag (or new category) |
 | `Tab` | hide/show the tag bar |
-| `F11` / `F1` / `Esc` | fullscreen / help / menu |
+| `F11` / `Esc` / `F1` | toggle fullscreen / leave fullscreen / help |
 
 Dashed yellow chips are **suggestions**: kept on Space unless you press their key. In an
 exclusive category (`·1` after its name) choosing a tag replaces the previous one.
 
-The menu (`Esc`) holds: open folder, switch library, rescan, queue filter (untagged only,
-review a category or a tag), vocabulary editor, rename from tags, settings (pre-check
-threshold, XMP mode, service URL), unreadable images, retry pending XMP writes.
+The menu bar at the top holds: open folder, switch library, rescan, rename from tags
+(File); queue filter — untagged only, review a category or a tag (Queue); vocabulary editor,
+settings (pre-check threshold, XMP mode, service URL), unreadable images, retry pending XMP
+writes (Tools).
 
 ## Suggestions
 

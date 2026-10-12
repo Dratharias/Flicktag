@@ -28,7 +28,7 @@ HELP = """<b>Flicktag</b><br><br>
 <b>Space</b> validate &amp; next &nbsp;·&nbsp; <b>→ / ←</b> next / previous without validating<br>
 <b>Delete</b> move to trash &nbsp;·&nbsp; <b>Ctrl+Z</b> undo<br>
 <b>N</b> new tag &nbsp;·&nbsp; <b>Tab</b> hide tag bar &nbsp;·&nbsp; <b>F11</b> fullscreen<br>
-<b>Esc</b> menu &nbsp;·&nbsp; <b>F1</b> this help<br><br>
+<b>Esc</b> leave fullscreen &nbsp;·&nbsp; <b>F1</b> this help<br><br>
 Dashed chips are suggestions: they are kept unless you press their key."""
 
 
@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
 
         self.canvas = Canvas(self)
         self.setCentralWidget(self.canvas)
+        self._build_menubar()
         self.header = QLabel(self.canvas)
         self.header.setStyleSheet(
             "color: #c9c9d1; background: rgba(10,10,12,170); padding: 6px 12px; border-radius: 8px;"
@@ -137,7 +138,7 @@ class MainWindow(QMainWindow):
         if library_id and any(lib.id == library_id for lib in store.libraries()):
             self.open_library(library_id)
         else:
-            self.canvas.set_image(None, "No library yet — press Esc and choose “Open folder…”")
+            self.canvas.set_image(None, "No library yet — File → Open folder…")
         self._layout_overlays()
 
     # --------------------------------------------------------------- libraries
@@ -194,7 +195,7 @@ class MainWindow(QMainWindow):
             return
         image_id = session.current_id
         if image_id is None:
-            message = "All done — Esc for the menu" if session.queue else "Nothing to sort here — Esc for the menu"
+            message = "All done" if session.queue else "Nothing to sort here"
             self.canvas.set_image(None, message)
         elif image_id in self._cache:
             self.canvas.set_image(self._cache[image_id])
@@ -392,6 +393,10 @@ class MainWindow(QMainWindow):
         if self.help.isVisible() and key in (Qt.Key.Key_Escape, Qt.Key.Key_F1):
             self.help.hide()
             return
+        if key == Qt.Key.Key_Escape:
+            if self.isFullScreen():
+                self.setWindowState(self.windowState() & ~Qt.WindowState.WindowFullScreen)
+            return
         if key == Qt.Key.Key_F11:
             # XOR keeps the maximized flag, so leaving fullscreen goes back to maximized
             self.setWindowState(self.windowState() ^ Qt.WindowState.WindowFullScreen)
@@ -400,9 +405,6 @@ class MainWindow(QMainWindow):
             self.help.show()
             self.help.raise_()
             self._layout_overlays()
-            return
-        if key == Qt.Key.Key_Escape:
-            self._menu()
             return
         if self.session is None:
             return
@@ -439,8 +441,25 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------- menu
 
-    def _menu(self) -> None:
-        menu = QMenu(self)
+    def _build_menubar(self) -> None:
+        bar = self.menuBar()
+        bar.setNativeMenuBar(False)  # keep it in the window, not in a desktop global menu
+        bar.setStyleSheet(
+            "QMenuBar { background: #141417; color: #c9c9d1; padding: 0; }"
+            "QMenuBar::item { padding: 2px 10px; background: transparent; }"
+            "QMenuBar::item:selected { background: #2a2a30; }"
+        )
+        # Menus list libraries, categories and tags, so they are refilled each time they open.
+        for title, fill in (
+            ("&File", self._fill_file_menu),
+            ("&Queue", self._fill_queue_menu),
+            ("&Tools", self._fill_tools_menu),
+            ("&Help", self._fill_help_menu),
+        ):
+            menu = bar.addMenu(title)
+            menu.aboutToShow.connect(lambda menu=menu, fill=fill: (menu.clear(), fill(menu)))
+
+    def _fill_file_menu(self, menu: QMenu) -> None:
         menu.addAction("Open folder…", self.choose_folder)
         libraries = menu.addMenu("Switch library")
         for library in self.store.libraries():
@@ -449,31 +468,35 @@ class MainWindow(QMainWindow):
             action.setChecked(bool(self.session) and self.session.library_id == library.id)
         if self.session:
             menu.addAction("Rescan library", lambda: self.open_library(self.session.library_id))
-            filters = menu.addMenu("Queue filter")
-            self._filter_action(filters, "All (untagged first)", QueueFilter())
-            self._filter_action(filters, "Untagged only", QueueFilter("untagged"))
-            by_category = filters.addMenu("Review category")
-            for category in self.store.categories():
-                self._filter_action(by_category, category.name, QueueFilter("category", category.id))
-            by_tag = filters.addMenu("Review tag")
-            for category in self.store.categories():
-                sub = by_tag.addMenu(category.name)
-                for tag in self.store.tags(category.id):
-                    self._filter_action(sub, tag.name, QueueFilter("tag", tag.id))
-        menu.addSeparator()
-        menu.addAction("Vocabulary…", self._vocabulary)
-        if self.session:
             menu.addAction("Rename from tags…", self._rename)
+        menu.addSeparator()
+        menu.addAction("Quit", self.close)
+
+    def _fill_queue_menu(self, menu: QMenu) -> None:
+        if not self.session:
+            menu.addAction("No library open").setEnabled(False)
+            return
+        self._filter_action(menu, "All (untagged first)", QueueFilter())
+        self._filter_action(menu, "Untagged only", QueueFilter("untagged"))
+        by_category = menu.addMenu("Review category")
+        for category in self.store.categories():
+            self._filter_action(by_category, category.name, QueueFilter("category", category.id))
+        by_tag = menu.addMenu("Review tag")
+        for category in self.store.categories():
+            sub = by_tag.addMenu(category.name)
+            for tag in self.store.tags(category.id):
+                self._filter_action(sub, tag.name, QueueFilter("tag", tag.id))
+
+    def _fill_tools_menu(self, menu: QMenu) -> None:
+        menu.addAction("Vocabulary…", self._vocabulary)
         menu.addAction("Settings…", self._settings)
         menu.addSeparator()
         if self.session:
             menu.addAction("Unreadable images…", self._unreadable)
         menu.addAction("Retry pending XMP writes", self._retry_xmp)
-        menu.addAction("Help (F1)", lambda: (self.help.show(), self.help.raise_(), self._layout_overlays()))
-        menu.addSeparator()
-        menu.addAction("Quit", self.close)
-        center = self.rect().center()
-        menu.exec(self.mapToGlobal(QPoint(center.x() - 120, center.y() - 160)))
+
+    def _fill_help_menu(self, menu: QMenu) -> None:
+        menu.addAction("Keys (F1)", lambda: (self.help.show(), self.help.raise_(), self._layout_overlays()))
 
     def _filter_action(self, menu: QMenu, label: str, queue_filter: QueueFilter) -> QAction:
         action = menu.addAction(label, lambda: self._set_filter(queue_filter))

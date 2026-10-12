@@ -58,3 +58,15 @@ def test_tab_hides_tagbar(qtbot, window):
     assert window.tagbar.isVisible()
     qtbot.keyClick(window, Qt.Key.Key_Tab)
     assert not window.tagbar.isVisible()
+
+
+def test_menubar_menus_fill(qtbot, window):
+    menus = [action.menu() for action in window.menuBar().actions()]
+    assert [m.title() for m in menus] == ["&File", "&Queue", "&Tools", "&Help"]
+    for menu in menus:
+        menu.aboutToShow.emit()
+        assert menu.actions()
+    queue = menus[1]
+    queue.aboutToShow.emit()  # refilling must not duplicate entries
+    assert [a.text() for a in queue.actions()].count("Untagged only") == 1
+
