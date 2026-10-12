@@ -87,3 +87,24 @@ def test_shift_letter_toggles_shift_tag_only(qtbot, window, seeded):
     qtbot.keyClick(window, "s", Qt.KeyboardModifier.ShiftModifier)
     assert skeleton.id in window.session.checked
     assert standing.id not in window.session.checked
+
+
+def test_tidy_dialog_previews_applies_and_saves_layout(qtbot, window, seeded):
+    from flicktag.ui.dialogs import OrganizeDialog
+
+    lib_id = window.session.library_id
+    dialog = OrganizeDialog(seeded, lib_id, tidy=True, parent=window)
+    qtbot.addWidget(dialog)
+    assert dialog.table.rowCount() == 3  # every image is untagged -> À trier
+    dialog._apply()
+    assert seeded.library(lib_id).layout == dialog.template.text()
+    assert all(i.rel_path.startswith("À trier/") for i in seeded.images(lib_id))
+
+
+def test_rescan_tidies_a_library_with_a_layout(qtbot, window, seeded):
+    lib = seeded.library(window.session.library_id)
+    seeded.set_layout(lib.id, "{subject}/{subject}_{uid}", "inbox")
+    window.open_library(lib.id)
+    qtbot.waitUntil(lambda: "Tidy: 3 moved" in window.toast.text(), timeout=5000)
+    assert all(i.rel_path.startswith("inbox/") for i in seeded.images(lib.id))
+    qtbot.waitUntil(lambda: window.session.current_id in window._cache, timeout=5000)

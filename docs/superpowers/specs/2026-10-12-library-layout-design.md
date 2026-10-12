@@ -1,7 +1,7 @@
 # Library Layout — Design Spec
 
 - **Date**: 2026-10-12
-- **Status**: Draft, awaiting review
+- **Status**: Implemented 2026-10-12
 - **Amends**: `2026-10-11-flicktag-design.md` — lifts the v1 non-goal "moving files across
   folders during rename". The tag-based rename becomes a special case of the layout.
 

@@ -9,14 +9,14 @@ from PyQt6.QtGui import QAction, QColor, QFont, QImage, QKeyEvent, QPainter, QPi
 from PyQt6.QtWidgets import QFileDialog, QLabel, QMainWindow, QMenu, QWidget
 
 from flicktag.core import library as library_mod
-from flicktag.core import vocab, xmpsync
+from flicktag.core import renamer, vocab, xmpsync
 from flicktag.core.history import History, HistoryError
 from flicktag.core.queue import QueueFilter
 from flicktag.core.session import Session
-from flicktag.core.store import Store
+from flicktag.core.store import LibraryError, Store
 from flicktag.suggest.client import DEFAULT_URL, Offline, SuggestClient
 from flicktag.suggest.engine import SuggestionEngine
-from flicktag.ui.dialogs import ListDialog, NewTagDialog, RenameDialog, SettingsDialog, VocabularyDialog
+from flicktag.ui.dialogs import ListDialog, NewTagDialog, OrganizeDialog, SettingsDialog, VocabularyDialog
 from flicktag.ui.tagbar import TagBar
 from flicktag.ui.workers import Job, Workers
 
@@ -152,12 +152,21 @@ class MainWindow(QMainWindow):
         if rescan:
             library = self.store.library(library_id)
             self.show_toast(f"Scanning {library.name}…")
-            self.workers.run(self.workers.io, "scan", lambda: library_mod.scan(self.store, library))
+
+            def job():
+                report = library_mod.scan(self.store, library)
+                return report, renamer.tidy(self.store, library.id)
+
+            self.workers.run(self.workers.io, "scan", job)
 
     def choose_folder(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Open image folder", str(Path.home()))
         if folder:
-            library = self.store.add_library(folder)
+            try:
+                library = self.store.add_library(folder)
+            except LibraryError as error:
+                self.show_toast(str(error))
+                return
             self.open_library(library.id)
 
     # ---------------------------------------------------------------- display
@@ -311,7 +320,10 @@ class MainWindow(QMainWindow):
         if name == "scores":
             self._scoring.difference_update(result)
         elif name == "scan" and self.session:
-            report = result
+            report, tidied = result
+            if tidied and tidied.moved:
+                self._cache.clear()
+                self._unreadable_now.clear()
             self.session.refresh_queue()
             self._refresh()
             text = f"Scan: {report.added} new"
@@ -321,6 +333,10 @@ class MainWindow(QMainWindow):
                 text += f", {report.missing} missing"
             if report.unreadable:
                 text += f", {len(report.unreadable)} unreadable"
+            if tidied and (tidied.moved or tidied.conflicts):
+                text += f" · Tidy: {tidied.moved} moved"
+                if tidied.conflicts:
+                    text += f", {tidied.conflicts} conflict(s)"
             self.show_toast(text)
         elif name == "retrain" and self.suggest_online:
             self._ping_status()
@@ -471,7 +487,8 @@ class MainWindow(QMainWindow):
             action.setChecked(bool(self.session) and self.session.library_id == library.id)
         if self.session:
             menu.addAction("Rescan library", lambda: self.open_library(self.session.library_id))
-            menu.addAction("Rename from tags…", self._rename)
+            menu.addAction("Organize into…", self._organize)
+            menu.addAction("Tidy library", lambda: self._organize(tidy=True))
         menu.addSeparator()
         menu.addAction("Quit", self.close)
 
@@ -521,11 +538,13 @@ class MainWindow(QMainWindow):
                 self.session.refresh_queue()
                 self._refresh()
 
-    def _rename(self) -> None:
-        dialog = RenameDialog(self.store, self.session.library_id, self)
+    def _organize(self, tidy: bool = False) -> None:
+        dialog = OrganizeDialog(self.store, self.session.library_id, tidy, self)
         dialog.exec()
         if dialog.applied:
             self._cache.clear()
+            self._unreadable_now.clear()
+            self.session.refresh_queue()
             self._refresh()
 
     def _settings(self) -> None:

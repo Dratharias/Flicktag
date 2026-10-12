@@ -300,41 +300,62 @@ class _NameDialog(QDialog):
         return self.name.text()
 
 
-# ---------------------------------------------------------------------- rename
+# -------------------------------------------------------------------- organize
 
 
-class RenameDialog(QDialog):
-    def __init__(self, store: Store, library_id: int, parent: QWidget | None = None):
+class OrganizeDialog(QDialog):
+    """Move the images of a library to where a destination library's layout puts them.
+
+    With `tidy`, the destination is the library itself and the preview runs at once.
+    Apply saves the template and untagged folder as the destination's layout.
+    """
+
+    def __init__(self, store: Store, library_id: int, tidy: bool = False, parent: QWidget | None = None):
         super().__init__(parent)
         self.store = store
         self.library_id = library_id
         self.ops: list[renamer.RenameOp] = []
         self.applied = False
-        self.setWindowTitle("Rename from tags")
-        self.resize(900, 600)
+        self.setWindowTitle("Tidy library" if tidy else "Organize from tags")
+        self.resize(1000, 650)
         layout = QVBoxLayout(self)
 
-        row = QHBoxLayout()
-        self.template = QLineEdit(store.get_setting("rename_template") or renamer.default_template(store))
+        form = QFormLayout()
+        self.destination = QComboBox()
+        for library in store.libraries():
+            self.destination.addItem(library.name, library.id)
+        self.destination.setCurrentIndex(self.destination.findData(library_id))
+        self.destination.setEnabled(not tidy)
+        self.destination.currentIndexChanged.connect(self._load_layout)
+        self.template = QLineEdit()
         placeholders = " ".join("{%s}" % c.slug for c in store.categories()) + " {uid}"
         self.template.setToolTip("Placeholders: " + placeholders)
+        self.untagged_dir = QLineEdit()
+        form.addRow("Destination library", self.destination)
+        form.addRow("Template", self.template)
+        form.addRow("Untagged folder", self.untagged_dir)
+        layout.addLayout(form)
+        hint = QLabel(
+            "'/' separates folders; the last part is the file name and needs {uid}. "
+            "Untagged images go to the untagged folder with their original name.\n"
+            "Placeholders: " + placeholders
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: gray")
+        layout.addWidget(hint)
         preview = QPushButton("Preview")
         preview.clicked.connect(self._preview)
-        row.addWidget(QLabel("Template"))
-        row.addWidget(self.template, 1)
-        row.addWidget(preview)
-        layout.addLayout(row)
-        layout.addWidget(QLabel("Placeholders: " + placeholders))
+        layout.addWidget(preview)
 
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Current name", "New name", "Problem"])
+        self.table.setHorizontalHeaderLabels(["Current path", "New path", "Problem"])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.table, 1)
 
         self.summary = QLabel("")
         layout.addWidget(self.summary)
-        self.apply_button = QPushButton("Apply renames")
+        self.apply_button = QPushButton("Apply")
         self.apply_button.setEnabled(False)
         self.apply_button.clicked.connect(self._apply)
         layout.addWidget(self.apply_button)
@@ -346,39 +367,65 @@ class RenameDialog(QDialog):
         undo = QPushButton("Undo selected batch")
         undo.clicked.connect(self._undo)
         layout.addWidget(undo)
+        self._load_layout()
         self._load_batches()
+        # Apply must use the ops of the text it saves: any edit asks for a new preview.
+        for field in (self.template, self.untagged_dir):
+            field.textEdited.connect(lambda _text: self.apply_button.setEnabled(False))
+        if tidy:
+            self._preview()
+
+    def _dest(self):
+        return self.store.library(self.destination.currentData())
+
+    def _load_layout(self) -> None:
+        dest = self._dest()
+        self.template.setText(dest.layout or renamer.default_template(self.store))
+        self.untagged_dir.setText(dest.untagged_dir or renamer.DEFAULT_UNTAGGED_DIR)
+        self.ops = []
+        self.table.setRowCount(0)
+        self.apply_button.setEnabled(False)
+        self.summary.setText("" if dest.layout else "This library has no layout yet: Apply sets it.")
 
     def _preview(self) -> None:
+        dest = self._dest()
         try:
-            self.ops = renamer.preview(self.store, self.library_id, self.template.text())
+            self.ops = renamer.preview(
+                self.store, self.library_id, self.template.text(), self.untagged_dir.text(), dest.id
+            )
         except renamer.TemplateError as error:
             _error(self, str(error))
             return
-        self.store.set_setting("rename_template", self.template.text())
+        source_root = self.store.library(self.library_id).root
         self.table.setRowCount(len(self.ops))
         for row, op in enumerate(self.ops):
-            self.table.setItem(row, 0, QTableWidgetItem(op.old.name))
-            self.table.setItem(row, 1, QTableWidgetItem(op.new.name))
+            self.table.setItem(row, 0, QTableWidgetItem(str(op.old.relative_to(source_root))))
+            self.table.setItem(row, 1, QTableWidgetItem(str(op.new.relative_to(dest.root))))
             problem = QTableWidgetItem(op.conflict or "")
             if op.conflict:
                 problem.setForeground(Qt.GlobalColor.red)
             self.table.setItem(row, 2, problem)
         self.table.resizeColumnsToContents()
         ok = sum(op.ok for op in self.ops)
-        self.summary.setText(f"{ok} file(s) will be renamed, {len(self.ops) - ok} skipped.")
-        self.apply_button.setEnabled(ok > 0)
+        self.summary.setText(f"{ok} file(s) will move, {len(self.ops) - ok} skipped.")
+        # Apply is also how a layout gets saved, even when nothing has to move.
+        self.apply_button.setEnabled(True)
 
     def _apply(self) -> None:
+        dest = self._dest()
         try:
             renamer.apply(self.store, self.ops)
         except OSError as error:
-            _error(self, f"Rename failed, nothing was changed: {error}")
+            _error(self, f"Move failed, nothing was changed: {error}")
             return
+        self.store.set_layout(
+            dest.id, self.template.text().strip(), renamer.normalize_untagged_dir(self.untagged_dir.text())
+        )
         self.applied = True
         self.ops = []
         self.table.setRowCount(0)
         self.apply_button.setEnabled(False)
-        self.summary.setText("Done.")
+        self.summary.setText(f"Done. Layout saved for {dest.name}; it is applied after every scan.")
         self._load_batches()
 
     def _load_batches(self) -> None:

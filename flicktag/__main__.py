@@ -1,7 +1,8 @@
 """Entry point.
 
     flicktag [FOLDER]                       open the tagger (optionally on FOLDER)
-    flicktag scan FOLDER                    add/rescan a library without the GUI
+    flicktag scan FOLDER                    add/rescan a library without the GUI (then tidy it
+                                            if it has a layout)
     flicktag export --json [-o FILE] [--library NAME]
 """
 
@@ -12,8 +13,8 @@ import os
 import sys
 from pathlib import Path
 
-from flicktag.core import export, library, vocab
-from flicktag.core.store import Store
+from flicktag.core import export, library, renamer, vocab
+from flicktag.core.store import LibraryError, Store
 
 
 def default_db() -> Path:
@@ -29,12 +30,19 @@ def _open_store(path: str | None) -> Store:
 
 def cmd_scan(args) -> int:
     store = _open_store(args.db)
-    lib = store.add_library(args.folder)
+    try:
+        lib = store.add_library(args.folder)
+    except LibraryError as error:
+        print(error, file=sys.stderr)
+        return 2
     report = library.scan(store, lib)
     print(
         f"{lib.name}: {report.added} added, {report.moved} moved, {report.missing} missing, "
         f"{len(report.unreadable)} unreadable"
     )
+    tidied = renamer.tidy(store, lib.id)
+    if tidied:
+        print(f"tidy: {tidied.moved} moved, {tidied.conflicts} conflict(s)")
     return 0
 
 
@@ -69,7 +77,11 @@ def cmd_gui(args) -> int:
         if not Path(args.folder).is_dir():
             print(f"not a folder: {args.folder}", file=sys.stderr)
             return 2
-        library_id = store.add_library(args.folder).id
+        try:
+            library_id = store.add_library(args.folder).id
+        except LibraryError as error:
+            print(error, file=sys.stderr)
+            return 2
     window = MainWindow(store, library_id)
     window.showMaximized()
     return app.exec()

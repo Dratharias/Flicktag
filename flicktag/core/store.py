@@ -91,7 +91,16 @@ MIGRATIONS: list[str] = [
         value TEXT NOT NULL
     );
     """,
+    # 2 — library layout (tag-driven folder template + folder for untagged images)
+    """
+    ALTER TABLE libraries ADD COLUMN layout TEXT;
+    ALTER TABLE libraries ADD COLUMN untagged_dir TEXT;
+    """,
 ]
+
+
+class LibraryError(ValueError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -100,6 +109,8 @@ class Library:
     name: str
     root_path: str
     last_position: int | None
+    layout: str | None = None  # path template; None = files are never moved automatically
+    untagged_dir: str | None = None
 
     @property
     def root(self) -> Path:
@@ -259,19 +270,47 @@ class Store:
     # -------------------------------------------------------------- libraries
 
     def add_library(self, root: str | Path, name: str | None = None) -> Library:
-        root_path = str(Path(root).expanduser().resolve())
-        existing = self.library_by_root(root_path)
+        """Register a folder. Libraries never overlap: a folder inside a library is
+        refused, and libraries inside the new folder are absorbed into it."""
+        root = Path(root).expanduser().resolve()
+        existing = self.library_by_root(root)
         if existing:
             return existing
-        cur = self.execute(
-            "INSERT INTO libraries(name, root_path) VALUES (?, ?)",
-            (name or Path(root_path).name, root_path),
-        )
-        return self.library(cur.lastrowid)
+        children = []
+        for library in self.libraries():
+            if root.is_relative_to(library.root):
+                raise LibraryError(f"{root} is already part of the library '{library.name}'")
+            if library.root.is_relative_to(root):
+                children.append(library)
+        with self.transaction():
+            cur = self.execute(
+                "INSERT INTO libraries(name, root_path) VALUES (?, ?)", (name or root.name, str(root))
+            )
+            library_id = cur.lastrowid
+            for child in children:
+                prefix = child.root.relative_to(root).as_posix() + "/"
+                self.execute(
+                    "UPDATE images SET library_id = ?, rel_path = ? || rel_path WHERE library_id = ?",
+                    (library_id, prefix, child.id),
+                )
+                if self.get_setting("current_library") == child.id:
+                    self.set_setting("current_library", library_id)
+                self.execute("DELETE FROM libraries WHERE id = ?", (child.id,))
+        return self.library(library_id)
 
     def library(self, library_id: int) -> Library:
         row = self.query("SELECT * FROM libraries WHERE id = ?", (library_id,))[0]
-        return Library(row["id"], row["name"], row["root_path"], row["last_position"])
+        return Library(
+            row["id"], row["name"], row["root_path"], row["last_position"], row["layout"], row["untagged_dir"]
+        )
+
+    def has_library(self, library_id: int) -> bool:
+        return bool(self.query("SELECT 1 FROM libraries WHERE id = ?", (library_id,)))
+
+    def set_layout(self, library_id: int, template: str | None, untagged_dir: str | None) -> None:
+        self.execute(
+            "UPDATE libraries SET layout = ?, untagged_dir = ? WHERE id = ?", (template, untagged_dir, library_id)
+        )
 
     def library_by_root(self, root: str | Path) -> Library | None:
         rows = self.query("SELECT id FROM libraries WHERE root_path = ?", (str(root),))

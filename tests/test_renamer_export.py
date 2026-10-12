@@ -70,6 +70,7 @@ def test_preview_apply_and_undo(seeded, lib, photos):
 
 def test_preview_flags_foreign_file_conflict(seeded, lib, photos):
     a = by_name(seeded, lib)["a.jpg"]
+    validate(seeded, a.id, {tag_id(seeded, "pose", "standing")}, set())  # no subject -> name is just the uid
     make_image(photos / f"{a.uid}.jpg", (1, 2, 3))  # unrelated file squatting the target
     ops = renamer.preview(seeded, lib.id, "{subject}_{uid}")
     op = next(op for op in ops if op.image_id == a.id)

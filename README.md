@@ -5,7 +5,7 @@ tag, **Space** to validate and move on. A local vision model (SigLIP 2, in a Pod
 container) pre-checks tags and learns from your corrections.
 
 Tags are stored in a central SQLite database, written into the images' XMP metadata, and can
-optionally drive a clean, undoable rename. A stable JSON export (`docs/FORMAT.md`) feeds
+optionally lay the files out on disk from their tags (undoable). A stable JSON export (`docs/FORMAT.md`) feeds
 other tools, such as a quick-poses (timed gesture drawing) app.
 
 ## Quick start
@@ -33,10 +33,27 @@ Without the container everything works, just without suggestions (red dot in the
 Dashed yellow chips are **suggestions**: kept on Space unless you press their key. In an
 exclusive category (`·1` after its name) choosing a tag replaces the previous one.
 
-The menu bar at the top holds: open folder, switch library, rescan, rename from tags
-(File); queue filter — untagged only, review a category or a tag (Queue); vocabulary editor,
+The menu bar at the top holds: open folder, switch library, rescan, organize into…, tidy
+library (File); queue filter — untagged only, review a category or a tag (Queue); vocabulary editor,
 settings (pre-check threshold, XMP mode, service URL), unreadable images, retry pending XMP
 writes (Tools).
+
+## Library layout
+
+A library can be given a layout: a path template such as
+`{subject}/{pose}/{subject}_{pose}_{uid}` (`/` separates folders, the file name needs
+`{uid}`) and an untagged folder (default `À trier`). Tagged images go where the template
+says, untagged ones go to the untagged folder with their original name — even from a folder
+that looks right, since folders are never read as tags. Folders left empty are removed.
+
+- **Organize into…** moves the current library's images into a destination library (itself
+  by default) following that library's layout. Apply saves the layout.
+- **Tidy library** re-applies the current library's layout and lists only misplaced files.
+- Once a library has a layout, every scan (opening, Rescan, `flicktag scan`) tidies it
+  automatically. Every batch can be undone from the Organize dialog.
+
+Libraries never overlap: adding a folder that contains libraries absorbs them (no file moves,
+no duplicates); a folder inside a library is refused.
 
 ## Suggestions
 
