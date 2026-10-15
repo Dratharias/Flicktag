@@ -226,6 +226,10 @@ DEFAULT_VOCABULARY = [
         ("nude", "a nude figure model"),
         ("clothed", "a clothed person"),
     ]),
+    ("Gender", True, None, [
+        ("man", "a man, male figure", "9"),
+        ("woman", "a woman, female figure", "0"),
+    ]),
     ("Scene", False, None, [
         ("mountain", "a landscape with mountains", "m"),
         ("forest", "a landscape with a forest or trees", "j"),
